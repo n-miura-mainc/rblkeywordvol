@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBL MEOキーワード調査ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0d0f14;
+  --bg2: #141720;
+  --bg3: #1c2030;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf0;
+  --text2: #8b90a0;
+  --text3: #555b6e;
+  --accent: #6c63f5;
+  --accent2: #00c9a7;
+  --accent3: #f5a623;
+  --accent-dim: rgba(108,99,245,0.15);
+  --accent2-dim: rgba(0,201,167,0.12);
+  --red: #f5604a;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Noto Sans JP', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;}
+
+/* Header */
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;gap:16px;}
+.logo{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;letter-spacing:0.05em;flex-shrink:0;}
+.header-text h1{font-size:17px;font-weight:700;color:var(--text);letter-spacing:0.03em;}
+.header-text p{font-size:12px;color:var(--text2);margin-top:2px;}
+.header-badge{margin-left:auto;background:var(--accent-dim);color:var(--accent);font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(108,99,245,0.3);font-family:var(--mono);}
+
+/* Main layout */
+.main{padding:24px 32px;max-width:1400px;margin:0 auto;}
+
+/* Summary cards */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.s-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;}
+.s-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.s-card.c1::before{background:var(--accent);}
+.s-card.c2::before{background:var(--accent2);}
+.s-card.c3::before{background:var(--accent3);}
+.s-card.c4::before{background:var(--red);}
+.s-label{font-size:11px;color:var(--text2);font-family:var(--mono);letter-spacing:0.08em;margin-bottom:8px;}
+.s-val{font-size:28px;font-weight:700;font-family:var(--mono);color:var(--text);}
+.s-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;}
+.tab-btn{padding:7px 20px;font-size:13px;font-family:var(--sans);border:none;background:transparent;color:var(--text2);border-radius:7px;cursor:pointer;transition:all 0.2s;}
+.tab-btn.active{background:var(--accent);color:#fff;font-weight:500;}
+.tab-btn:hover:not(.active){background:var(--bg3);color:var(--text);}
+
+/* Controls */
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;}
+select,input[type=text]{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:8px;
+  color:var(--text);font-size:13px;padding:7px 12px;font-family:var(--sans);
+  outline:none;transition:border-color 0.2s;
+}
+select:focus,input[type=text]:focus{border-color:var(--accent);}
+select{cursor:pointer;padding-right:28px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b90a0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+input[type=text]{min-width:200px;}
+input[type=text]::placeholder{color:var(--text3);}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+table{width:100%;border-collapse:collapse;}
+thead tr{border-bottom:1px solid var(--border2);}
+thead th{padding:12px 14px;text-align:left;font-size:11px;font-family:var(--mono);color:var(--text2);font-weight:500;letter-spacing:0.08em;white-space:nowrap;background:var(--bg3);}
+thead th:first-child{border-radius:12px 0 0 0;}
+thead th:last-child{border-radius:0 12px 0 0;}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--bg3);}
+td{padding:10px 14px;vertical-align:middle;}
+
+.pref-badge{
+  font-size:10px;font-family:var(--mono);padding:3px 9px;border-radius:20px;
+  background:var(--accent-dim);color:var(--accent);border:1px solid rgba(108,99,245,0.25);
+  white-space:nowrap;font-weight:500;
+}
+.store-name{font-size:13px;font-weight:500;}
+.kw-text{font-size:12px;color:var(--text2);font-family:var(--mono);}
+
+.vol-wrap{display:flex;align-items:center;gap:8px;}
+.vol-num{font-family:var(--mono);font-size:13px;font-weight:500;min-width:38px;text-align:right;}
+.bar-bg{flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;min-width:50px;position:relative;}
+.bar-fill{height:6px;border-radius:3px;position:absolute;top:0;left:0;transition:width 0.4s ease;}
+.fill1{background:linear-gradient(90deg,#6c63f5,#9b95ff);}
+.fill2{background:linear-gradient(90deg,#00c9a7,#00e6bf);}
+.no-data{color:var(--text3);font-family:var(--mono);font-size:12px;}
+.total-num{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);}
+
+/* Chart */
+.chart-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;}
+.chart-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:gap;}
+.chart-legend{display:flex;gap:20px;}
+.leg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);}
+.leg-dot{width:10px;height:10px;border-radius:2px;}
+.l1{background:#6c63f5;}
+.l2{background:#00c9a7;}
+
+/* Rank tags */
+.rank-1{color:#f5a623;font-family:var(--mono);font-size:11px;font-weight:700;}
+.rank-2{color:var(--text2);font-family:var(--mono);font-size:11px;}
+.rank-3{color:var(--text3);font-family:var(--mono);font-size:11px;}
+
+/* No results */
+.no-results{text-align:center;padding:48px;color:var(--text3);font-size:14px;}
+
+/* Footer */
+.footer{text-align:center;padding:24px;color:var(--text3);font-size:11px;font-family:var(--mono);border-top:1px solid var(--border);margin-top:32px;}
+
+@media(max-width:900px){
+  .summary{grid-template-columns:repeat(2,1fr);}
+  .main{padding:16px;}
+  .header{padding:14px 16px;}
+}
+@media(max-width:600px){
+  .summary{grid-template-columns:1fr 1fr;}
+  .s-val{font-size:22px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">RBL</div>
+  <div class="header-text">
+    <h1>MEOキーワード調査ダッシュボード</h1>
+    <p>Googleキーワードプランナー抽出データ — 全店舗キーワードボリューム集計</p>
+  </div>
+  <div class="header-badge">54 STORES</div>
+</div>
+
+<div class="main">
+  <div class="summary" id="summary"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('table',this)">一覧テーブル</button>
+    <button class="tab-btn" onclick="showTab('chart',this)">ボリューム比較チャート</button>
+  </div>
+
+  <!-- Table tab -->
+  <div id="tab-table">
+    <div class="controls">
+      <select id="prefSel" onchange="render()">
+        <option value="">都道府県: すべて</option>
+      </select>
+      <select id="sortSel" onchange="render()">
+        <option value="totalDesc">合計ボリューム↓</option>
+        <option value="kw1desc">KW①ボリューム↓</option>
+        <option value="kw2desc">KW②ボリューム↓</option>
+        <option value="pref">都道府県順</option>
+      </select>
+      <input type="text" id="search" placeholder="店舗名・キーワードで絞込..." oninput="render()">
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>RANK</th>
+            <th>都道府県</th>
+            <th>店舗名</th>
+            <th>KW① 地域名キーワード</th>
+            <th>KW①ボリューム</th>
+            <th>KW② 店舗名キーワード</th>
+            <th>KW②ボリューム</th>
+            <th>合計</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="no-results" class="no-results" style="display:none;">該当する店舗が見つかりません</div>
+    </div>
+  </div>
+
+  <!-- Chart tab -->
+  <div id="tab-chart" style="display:none;">
+    <div class="chart-section">
+      <div class="chart-top">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <select id="prefSelC" onchange="renderChart()">
+            <option value="">都道府県: すべて</option>
+          </select>
+          <select id="chartType" onchange="renderChart()">
+            <option value="total">KW①＋KW② 積み上げ</option>
+            <option value="kw1">KW①のみ（地域名）</option>
+            <option value="kw2">KW②のみ（店舗名）</option>
+          </select>
+        </div>
+        <div class="chart-legend">
+          <span class="leg"><span class="leg-dot l1"></span>KW①（地域名）</span>
+          <span class="leg"><span class="leg-dot l2"></span>KW②（店舗名）</span>
+        </div>
+      </div>
+      <div id="chart-wrap" style="position:relative;width:100%;height:600px;">
+        <canvas id="barChart" role="img" aria-label="RBL全店舗キーワードボリューム棒グラフ">各店舗のKW①KW②ボリュームを表示</canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">RBL様 MEOキーワード調査 — Googleキーワードプランナーより抽出 &nbsp;|&nbsp; "-" はデータなし（0または計測不能）</div>
+
+<script>
+const raw=[
+  ["東京","新宿本店","RBL 新宿",260,"RBL 新宿本店",1000],
+  ["東京","池袋店","RBL 池袋",210,"RBL 池袋店",480],
+  ["東京","渋谷店","RBL 渋谷",140,"RBL 渋谷店",390],
+  ["東京","自由が丘店","RBL 自由が丘",260,"RBL 自由が丘店",140],
+  ["東京","銀座店","RBL 銀座",170,"RBL 銀座店",260],
+  ["東京","町田店","RBL 町田",210,"RBL 町田店",170],
+  ["東京","立川店","RBL 立川",170,"RBL 立川店",140],
+  ["東京","赤羽店","RBL 赤羽",110,"RBL 赤羽店",90],
+  ["東京","錦糸町店","RBL 錦糸町",40,"RBL 錦糸町店",0],
+  ["東京","上野店","RBL 上野",0,"RBL 上野店",0],
+  ["神奈川","横浜店","RBL 横浜",480,"RBL 横浜店",390],
+  ["神奈川","川崎店","RBL 川崎",90,"RBL 川崎店",20],
+  ["埼玉","イオンレイクタウン店","RBL レイクタウン",140,"RBL イオンレイクタウン店",90],
+  ["埼玉","大宮店","RBL 大宮",260,"RBL 大宮店",210],
+  ["埼玉","ドン・キホーテ川越東口店","RBL 川越",110,"RBL ドン・キホーテ川越東口店",70],
+  ["千葉","千葉店","RBL 千葉",320,"RBL 千葉店",480],
+  ["千葉","船橋店","RBL 船橋",260,"RBL 船橋店",210],
+  ["茨城","水戸駅前店","RBL 水戸",170,"RBL 水戸駅前店",90],
+  ["栃木","トナリエ宇都宮店","RBL 宇都宮",260,"RBL トナリエ宇都宮店",70],
+  ["群馬","高崎オーパ店","RBL 高崎",70,"RBL 高崎オーパ店",10],
+  ["新潟","新潟店","RBL 新潟",210,"RBL 新潟店",110],
+  ["山梨","甲府昭和店","RBL 甲府",30,"RBL 甲府昭和店",0],
+  ["長野","長野店","RBL 長野",110,"RBL 長野店",20],
+  ["北海道","札幌店","RBL 札幌",590,"RBL 札幌店",260],
+  ["宮城","仙台店","RBL 仙台",390,"RBL 仙台店",170],
+  ["岩手","イオンモール盛岡店","RBL 盛岡",210,"RBL イオンモール盛岡店",50],
+  ["福島","郡山駅前店","RBL 郡山",140,"RBL 郡山駅前店",40],
+  ["愛知","栄店","RBL 栄",110,"RBL 栄店",260],
+  ["愛知","名古屋駅前店","RBL 名古屋",390,"RBL 名古屋駅前店",880],
+  ["愛知","イオンタウン岡崎美合店","RBL 岡崎",110,"RBL イオンタウン岡崎美合店",210],
+  ["愛知","豊田駅前店","RBL 豊田",110,"RBL 豊田駅前店",390],
+  ["静岡","静岡店","RBL 静岡",140,"RBL 静岡店",260],
+  ["大阪","梅田店","RBL 梅田",260,"RBL 梅田店",880],
+  ["大阪","難波店","RBL 難波",170,"RBL 難波店",720],
+  ["京都","京都店","RBL 京都",260,"RBL 京都店",590],
+  ["兵庫","イオンタウン姫路店","RBL 姫路",170,"RBL イオンタウン姫路店",140],
+  ["兵庫","三宮店","RBL 三宮",210,"RBL 三宮店",170],
+  ["奈良","西大寺駅前店","RBL 西大寺",110,"RBL 西大寺駅前店",70],
+  ["三重","三重四日市店","RBL 四日市",90,"RBL 三重四日市店",0],
+  ["広島","広島店","RBL 広島",320,"RBL 広島店",390],
+  ["広島","アイネスフクヤマ店","RBL 福山",110,"RBL アイネスフクヤマ店",140],
+  ["愛媛","松山店","RBL 松山",110,"RBL 松山店",70],
+  ["徳島","ゆめタウン徳島店","RBL 徳島",110,"RBL ゆめタウン徳島店",70],
+  ["香川","ゆめタウン三豊店","RBL 三豊",40,"RBL ゆめタウン三豊店",50],
+  ["島根","ゆめタウン出雲店","RBL 出雲",70,"RBL ゆめタウン出雲店",0],
+  ["岡山","ゆめタウン倉敷店","RBL 倉敷",70,"RBL ゆめタウン倉敷店",0],
+  ["福岡","天神店","RBL 天神",320,"RBL 天神店",720],
+  ["福岡","イオンモール福岡店","RBL 福岡",140,"RBL イオンモール福岡店",210],
+  ["福岡","セントシティ小倉店","RBL 小倉",170,"RBL セントシティ小倉店",0],
+  ["鹿児島","鹿児島店","RBL 鹿児島",320,"RBL 鹿児島店",90],
+  ["宮崎","イオンモール宮崎店","RBL 宮崎",90,"RBL イオンモール宮崎店",70],
+  ["熊本","ゆめタウンサンピアン熊本店","RBL 熊本",210,"RBL ゆめタウンサンピアン熊本店",0],
+  ["沖縄","那覇店","RBL 那覇",170,"RBL 那覇店",390],
+  ["沖縄","イオンモール沖縄ライカム店","RBL 沖縄",110,"RBL イオンモール沖縄ライカム店",140],
+];
+
+const data = raw.map(r=>({pref:r[0],store:r[1],kw1:r[2],v1:r[3],kw2:r[4],v2:r[5],total:r[3]+r[5]}));
+const maxTotal = Math.max(...data.map(d=>d.total));
+const prefs = [...new Set(data.map(d=>d.pref))];
+const allSorted = [...data].sort((a,b)=>b.total-a.total);
+
+// Populate prefecture selects
+['prefSel','prefSelC'].forEach(id=>{
+  const s = document.getElementById(id);
+  prefs.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;s.appendChild(o);});
+});
+
+function getFiltered(prefId, searchId){
+  const pref = document.getElementById(prefId).value;
+  const q = searchId ? document.getElementById(searchId).value.toLowerCase() : '';
+  return data.filter(d=>{
+    if(pref && d.pref!==pref) return false;
+    if(q && !d.store.toLowerCase().includes(q) && !d.kw1.toLowerCase().includes(q) && !d.kw2.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function getSorted(arr){
+  const s = document.getElementById('sortSel').value;
+  return arr.slice().sort((a,b)=>{
+    if(s==='kw1desc') return b.v1-a.v1;
+    if(s==='kw2desc') return b.v2-a.v2;
+    if(s==='totalDesc') return b.total-a.total;
+    return prefs.indexOf(a.pref)-prefs.indexOf(b.pref);
+  });
+}
+
+function volCell(v, cls){
+  if(v===0) return `<td><span class="no-data">—</span></td>`;
+  const pct = maxTotal>0 ? Math.round(v/maxTotal*100) : 0;
+  return `<td><div class="vol-wrap">
+    <span class="vol-num">${v.toLocaleString()}</span>
+    <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+  </div></td>`;
+}
+
+function rankTag(rank){
+  if(rank===1) return `<span class="rank-1">▶ #1</span>`;
+  if(rank<=3) return `<span class="rank-2">#${rank}</span>`;
+  return `<span class="rank-3">#${rank}</span>`;
+}
+
+function render(){
+  const arr = getSorted(getFiltered('prefSel','search'));
+  const tb = document.getElementById('tbody');
+  const nr = document.getElementById('no-results');
+  if(arr.length===0){tb.innerHTML='';nr.style.display='block';updateSummary([]);return;}
+  nr.style.display='none';
+  tb.innerHTML = arr.map(d=>{
+    const rank = allSorted.findIndex(x=>x.store===d.store)+1;
+    return `<tr>
+      <td>${rankTag(rank)}</td>
+      <td><span class="pref-badge">${d.pref}</span></td>
+      <td><span class="store-name">${d.store}</span></td>
+      <td><span class="kw-text">${d.kw1}</span></td>
+      ${volCell(d.v1,'fill1')}
+      <td><span class="kw-text">${d.kw2}</span></td>
+      ${volCell(d.v2,'fill2')}
+      <td><span class="total-num">${d.total.toLocaleString()}</span></td>
+    </tr>`;
+  }).join('');
+  updateSummary(arr);
+}
+
+function updateSummary(arr){
+  const tv1 = arr.reduce((s,d)=>s+d.v1,0);
+  const tv2 = arr.reduce((s,d)=>s+d.v2,0);
+  const top = [...arr].sort((a,b)=>b.total-a.total)[0];
+  const noData = arr.filter(d=>d.total===0).length;
+  document.getElementById('summary').innerHTML=`
+    <div class="s-card c1"><div class="s-label">STORES</div><div class="s-val">${arr.length}</div><div class="s-sub">表示店舗数</div></div>
+    <div class="s-card c2"><div class="s-label">KW① TOTAL VOL</div><div class="s-val">${tv1.toLocaleString()}</div><div class="s-sub">地域名キーワード合計</div></div>
+    <div class="s-card c3"><div class="s-label">KW② TOTAL VOL</div><div class="s-val">${tv2.toLocaleString()}</div><div class="s-sub">店舗名キーワード合計</div></div>
+    <div class="s-card c4"><div class="s-label">TOP STORE</div><div class="s-val" style="font-size:${top&&top.store.length>5?'15px':'20px'};margin-top:4px;">${top?top.store:'—'}</div><div class="s-sub">${top?'合計 '+top.total.toLocaleString():''} / ND:${noData}店舗</div></div>
+  `;
+}
+
+let chartInst = null;
+function renderChart(){
+  const arr = getFiltered('prefSelC',null).slice().sort((a,b)=>b.total-a.total);
+  const type = document.getElementById('chartType').value;
+  const wrap = document.getElementById('chart-wrap');
+  wrap.style.height = Math.max(400, arr.length*28+80)+'px';
+  if(chartInst){chartInst.destroy();}
+  const labels = arr.map(d=>d.store);
+  const datasets = type==='kw1' ? [
+    {label:'KW①（地域名）',data:arr.map(d=>d.v1),backgroundColor:'#6c63f5',borderRadius:3,barThickness:14}
+  ] : type==='kw2' ? [
+    {label:'KW②（店舗名）',data:arr.map(d=>d.v2),backgroundColor:'#00c9a7',borderRadius:3,barThickness:14}
+  ] : [
+    {label:'KW①（地域名）',data:arr.map(d=>d.v1),backgroundColor:'#6c63f5',borderRadius:3,barThickness:14},
+    {label:'KW②（店舗名）',data:arr.map(d=>d.v2),backgroundColor:'#00c9a7',borderRadius:3,barThickness:14}
+  ];
+  chartInst = new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      indexAxis:'y',
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1c2030',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,
+          titleColor:'#e8eaf0',bodyColor:'#8b90a0',
+          callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.x.toLocaleString()}
+        }
+      },
+      scales:{
+        x:{
+          stacked:type==='total',
+          grid:{color:'rgba(255,255,255,0.05)'},
+          ticks:{color:'#555b6e',font:{size:11}},
+          border:{color:'rgba(255,255,255,0.07)'}
+        },
+        y:{
+          stacked:type==='total',
+          ticks:{color:'#8b90a0',font:{size:11},autoSkip:false},
+          border:{color:'rgba(255,255,255,0.07)'},
+          grid:{display:false}
+        }
+      }
+    }
+  });
+}
+
+function showTab(tab, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-table').style.display = tab==='table'?'block':'none';
+  document.getElementById('tab-chart').style.display = tab==='chart'?'block':'none';
+  if(tab==='chart') renderChart();
+}
+
+render();
+</script>
+</body>
+</html>
